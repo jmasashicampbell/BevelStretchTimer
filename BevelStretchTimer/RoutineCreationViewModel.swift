@@ -10,6 +10,10 @@ import Foundation
 class RoutineCreationViewModel {
     var routine = StretchRoutine()
 
+    var totalDuration: Int {
+        routine.steps.reduce(0) { $0 + $1.duration }
+    }
+
     func addStep() {
         routine.steps.append(StretchStep())
     }

@@ -37,6 +37,14 @@ struct RoutineCreationView: View {
 
                 Divider()
 
+                HStack(spacing: 0) {
+                    Text("Estimated time: ")
+                        .foregroundStyle(.secondary)
+                    Text(roundedMinutes(viewModel.totalDuration))
+                }
+                .font(.subheadline)
+                .padding(.top, 8)
+
                 Button("Start session") {
                     isSessionActive = true
                 }
@@ -49,6 +57,11 @@ struct RoutineCreationView: View {
                 ActiveSessionView(routineName: viewModel.routine.name, steps: viewModel.routine.steps)
             }
         }
+    }
+    
+    private func roundedMinutes(_ seconds: Int) -> String {
+        let minutes = Int((Double(seconds) / 60).rounded())
+        return minutes == 1 ? "1 minute" : "\(minutes) minutes"
     }
 }
 
