@@ -5,10 +5,17 @@
 
 import SwiftUI
 
+
+
 struct ActiveSessionView: View {
     @State private var viewModel: ActiveSessionViewModel
     @Environment(\.dismiss) private var dismiss
     let routineName: String
+    
+    private let blackGradient = LinearGradient(gradient: Gradient(colors: [Color(white: 0.306), .black]),
+                                               startPoint: .top,
+                                               endPoint: .bottom)
+    
 
     init(routineName: String, steps: [StretchStep]) {
         self.routineName = routineName
@@ -17,8 +24,8 @@ struct ActiveSessionView: View {
 
     var body: some View {
         VStack {
-            if case .countdown(let count) = viewModel.phase {
-                countdownView(count: count)
+            if case .countdown(let endDate) = viewModel.phase {
+                countdownView(endDate: endDate)
             } else {
                 Spacer()
                 centerStack
@@ -38,9 +45,20 @@ struct ActiveSessionView: View {
         .onDisappear { viewModel.end() }
     }
     
-    private func countdownView(count: Int) -> some View {
-        Text("\(count)")
-            .font(.system(size: 120, weight: .bold, design: .rounded))
+    private func countdownView(endDate: Date) -> some View {
+        TimelineView(.periodic(from: .now, by: 1.0)) { context in
+            let count = max(1, Int(ceil(endDate.timeIntervalSince(context.date))))
+            Rectangle()
+                .frame(width: 80, height: 80)
+                .foregroundStyle(blackGradient)
+                .cornerRadius(16)
+                .shadow(color: Color.black.opacity(0.3), radius: 14, y: 3)
+                .overlay {
+                    Text("\(count)")
+                        .font(.system(size: 48, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.white)
+                }
+        }
     }
     
     private var centerStack: some View {
@@ -169,8 +187,11 @@ struct ActiveSessionView: View {
     }
 
     private func formattedTime(_ seconds: TimeInterval) -> String {
-        let s = Int(ceil(seconds))
-        return String(format: "%02d:%02d", s / 60, s % 60)
+        let secondsInt = Int(ceil(seconds))
+        let hours = secondsInt / 3600
+        let minutes = (secondsInt % 3600) / 60
+        let remainderSeconds = secondsInt % 60
+        return String(format: "%02d:%02d:%02d", hours, minutes, remainderSeconds)
     }
 
     private func formattedTotalTime(_ seconds: TimeInterval) -> String {

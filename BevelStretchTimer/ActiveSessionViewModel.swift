@@ -10,14 +10,14 @@ import Foundation
 @Observable
 class ActiveSessionViewModel {
     enum Phase {
-        case countdown(Int)
+        case countdown(endDate: Date)
         case step(index: Int, endDate: Date, sessionStartDate: Date)
         case paused(stepIndex: Int, remaining: TimeInterval, totalElapsed: TimeInterval)
         case done(sessionStartDate: Date)
     }
 
     private let steps: [StretchStep]
-    var phase: Phase = .countdown(3)
+    var phase: Phase = .countdown(endDate: .now + 3)
     private var sessionTask: Task<Void, Never>?
 
     init(steps: [StretchStep]) {
@@ -69,12 +69,10 @@ class ActiveSessionViewModel {
     // MARK: Public methods
 
     func start() async {
-        for count in [3, 2, 1] {
-            phase = .countdown(count)
-            try? await Task.sleep(for: .seconds(1))
-        }
+        let countdownEnd = Date.now + 3
+        phase = .countdown(endDate: countdownEnd)
+        try? await Task.sleep(for: .seconds(3))
         sessionTask = Task { await runFrom(stepIndex: 0, sessionStartDate: .now) }
-        
     }
 
     func end() {
