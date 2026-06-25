@@ -37,18 +37,30 @@ struct RoutineCreationView: View {
 
                 Divider()
 
-                HStack(spacing: 0) {
-                    Text("Estimated time: ")
-                        .foregroundStyle(.secondary)
-                    Text(roundedMinutes(viewModel.totalDuration))
+                Group {
+                    if viewModel.didAttemptStart, let error = viewModel.validationError {
+                        Text(error)
+                            .foregroundStyle(.red)
+                    } else {
+                        HStack(spacing: 0) {
+                            Text("Estimated time: ")
+                                .foregroundStyle(.secondary)
+                            Text(roundedMinutes(viewModel.totalDuration))
+                        }
+                    }
                 }
                 .font(.subheadline)
                 .padding(.top, 8)
 
                 Button("Start session") {
-                    isSessionActive = true
+                    if viewModel.validationError == nil {
+                        isSessionActive = true
+                    } else {
+                        viewModel.didAttemptStart = true
+                    }
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(viewModel.validationError == nil ? .black : .gray)
                 .controlSize(.large)
                 .frame(maxWidth: .infinity)
                 .padding()
