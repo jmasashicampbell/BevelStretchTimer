@@ -7,36 +7,54 @@ import SwiftUI
 
 struct RoutineCreationView: View {
     @State private var viewModel = RoutineCreationViewModel()
+    @State private var isSessionActive = false
 
     var body: some View {
         @Bindable var viewModel = viewModel
 
-        VStack(spacing: 0) {
-            TextField("New stretch session", text: $viewModel.routine.name)
-                .font(.title.bold())
-                .padding(.horizontal)
-                .padding(.vertical, 12)
+        NavigationStack {
+            VStack(spacing: 0) {
+                TextField("New stretch session", text: $viewModel.routine.name)
+                    .font(.title.bold())
+                    .padding(.horizontal)
+                    .padding(.vertical, 12)
 
-            Divider()
+                Divider()
 
-            List($viewModel.routine.steps) { $step in
-                StepRowView(step: $step)
-            }
-            .listStyle(.plain)
+                List {
+                    ForEach($viewModel.routine.steps) { $step in
+                        StepRowView(step: $step) {
+                            viewModel.deleteStep(id: step.id)
+                        }
+                    }
+                    Button {
+                        viewModel.addStep()
+                    } label: {
+                        Label("Add step", systemImage: "plus")
+                    }
+                }
+                .listStyle(.plain)
 
-            Divider()
+                Divider()
 
-            Button("Start session") { }
+                Button("Start session") {
+                    isSessionActive = true
+                }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .frame(maxWidth: .infinity)
                 .padding()
+            }
+            .navigationDestination(isPresented: $isSessionActive) {
+                ActiveSessionView(steps: viewModel.routine.steps)
+            }
         }
     }
 }
 
 struct StepRowView: View {
     @Binding var step: StretchStep
+    var onDelete: () -> Void
 
     var body: some View {
         HStack {
@@ -45,6 +63,10 @@ struct StepRowView: View {
             Text(formattedDuration(step.duration))
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
+            Button(role: .destructive, action: onDelete) {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.borderless)
         }
     }
 
