@@ -56,17 +56,43 @@ struct StepRowView: View {
     @Binding var step: StretchStep
     var onDelete: () -> Void
 
+    @State private var showingPicker = false
+    @State private var selectedMinutes = 0
+    @State private var selectedSeconds = 0
+
     var body: some View {
         HStack {
             TextField("(e.g. Hip flexor)", text: $step.name)
             Spacer()
-            Text(formattedDuration(step.duration))
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
+            Button {
+                selectedMinutes = step.duration / 60
+                selectedSeconds = step.duration % 60
+                showingPicker = true
+            } label: {
+                Text(formattedDuration(step.duration))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.borderless)
             Button(role: .destructive, action: onDelete) {
                 Image(systemName: "trash")
             }
             .buttonStyle(.borderless)
+        }
+        .sheet(isPresented: $showingPicker) {
+            VStack(spacing: 0) {
+                DurationPickerView(minutes: $selectedMinutes, seconds: $selectedSeconds)
+
+                Button("Set") {
+                    step.duration = selectedMinutes * 60 + selectedSeconds
+                    showingPicker = false
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .frame(maxWidth: .infinity)
+                .padding()
+            }
+            .presentationDetents([.height(280)])
         }
     }
 
