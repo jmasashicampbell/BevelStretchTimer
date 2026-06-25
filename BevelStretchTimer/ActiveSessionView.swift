@@ -15,89 +15,106 @@ struct ActiveSessionView: View {
 
     var body: some View {
         VStack {
-            ZStack {
-                switch viewModel.phase {
-                case .countdown(let count):
-                    Text("\(count)")
-                        .font(.system(size: 120, weight: .bold, design: .rounded))
-                case .step(_, let endDate):
-                    stepDisplay {
-                        TimelineView(.periodic(from: .now, by: 1.0)) { context in
-                            Text(formattedTime(max(0, endDate.timeIntervalSince(context.date))))
-                                .font(.system(size: 80, weight: .bold, design: .monospaced))
-                                .monospacedDigit()
-                        }
-                    }
-                case .paused(_, let remaining):
-                    stepDisplay {
-                        Text(formattedTime(remaining))
-                            .font(.system(size: 80, weight: .bold, design: .monospaced))
-                            .monospacedDigit()
-                    }
-                case .done:
-                    VStack(spacing: 24) {
-                        Text("Done!")
-                            .font(.largeTitle.bold())
-                        Button("End Session") {
-                            viewModel.end()
-                            dismiss()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-                    }
+            if case .countdown(let count) = viewModel.phase {
+                countdownView(count: count)
+            } else {
+                Spacer()
+                centerStack
+                Spacer()
+                if viewModel.currentStep != nil {
+                    playbackControls
                 }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            if viewModel.currentStep != nil {
-                Button("Reset") {
-                    viewModel.resetStep()
-                }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-                HStack(spacing: 24) {
-                    Button {
-                        viewModel.skipBackward()
-                    } label: {
-                        Image(systemName: "backward.end.fill")
-                            .font(.title)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!viewModel.canSkipBackward)
-
-                    Button {
-                        viewModel.togglePause()
-                    } label: {
-                        Image(systemName: viewModel.isPaused ? "play.fill" : "pause.fill")
-                            .font(.title)
-                    }
-                    .buttonStyle(.borderedProminent)
-
-                    Button {
-                        viewModel.skipForward()
-                    } label: {
-                        Image(systemName: "forward.end.fill")
-                            .font(.title)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!viewModel.canSkipForward)
-                }
-                .padding()
             }
         }
         .task { await viewModel.start() }
         .onDisappear { viewModel.end() }
     }
-
-    @ViewBuilder
-    private func stepDisplay<Timer: View>(@ViewBuilder timer: () -> Timer) -> some View {
-        VStack(spacing: 16) {
-            Text(viewModel.currentStep?.name ?? "")
-                .font(.title2)
-                .foregroundStyle(.secondary)
-            timer()
+    
+    private func countdownView(count: Int) -> some View {
+        Text("\(count)")
+            .font(.system(size: 120, weight: .bold, design: .rounded))
+    }
+    
+    private var centerStack: some View {
+        VStack {
+            switch viewModel.phase {
+                
+            case .step(_, let endDate):
+                stepText
+                TimelineView(.periodic(from: .now, by: 1.0)) { context in
+                    let remaining = max(0, endDate.timeIntervalSince(context.date))
+                    timerView(remaining: remaining)
+                }
+                resetButton
+                
+            case .paused(_, let remaining):
+                stepText
+                timerView(remaining: remaining)
+                resetButton
+                
+            case .done:
+                Button("End Session") {
+                    viewModel.end()
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                
+            default:
+                EmptyView()
+            }
         }
+    }
+    
+    private var stepText: some View {
+        Text(viewModel.currentStep?.name ?? "")
+            .font(.title2)
+            .foregroundStyle(.secondary)
+    }
+    
+    private func timerView(remaining: TimeInterval) -> some View {
+        Text(formattedTime(remaining))
+            .font(.system(size: 80, weight: .bold, design: .monospaced))
+            .monospacedDigit()
+    }
+    
+    private var resetButton: some View {
+        Button("Reset") {
+            viewModel.resetStep()
+        }
+        .font(.subheadline)
+        .foregroundStyle(.secondary)
+    }
+    
+    private var playbackControls: some View {
+        HStack(spacing: 24) {
+            Button {
+                viewModel.skipBackward()
+            } label: {
+                Image(systemName: "backward.end.fill")
+                    .font(.title)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(!viewModel.canSkipBackward)
+
+            Button {
+                viewModel.togglePause()
+            } label: {
+                Image(systemName: viewModel.isPaused ? "play.fill" : "pause.fill")
+                    .font(.title)
+            }
+            .buttonStyle(.borderedProminent)
+
+            Button {
+                viewModel.skipForward()
+            } label: {
+                Image(systemName: "forward.end.fill")
+                    .font(.title)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(!viewModel.canSkipForward)
+        }
+        .padding()
     }
 
     private func formattedTime(_ seconds: TimeInterval) -> String {
