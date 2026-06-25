@@ -38,6 +38,24 @@ class ActiveSessionViewModel {
         return false
     }
 
+    var canSkipBackward: Bool {
+        switch phase {
+        case .step(let index, _), .paused(let index, _):
+            return index > 0
+        default:
+            return false
+        }
+    }
+
+    var canSkipForward: Bool {
+        switch phase {
+        case .step(let index, _), .paused(let index, _):
+            return index < steps.count - 1
+        default:
+            return false
+        }
+    }
+
     func start() async {
         do {
             for count in [3, 2, 1] {
@@ -55,7 +73,7 @@ class ActiveSessionViewModel {
         sessionTask = nil
     }
     
-    func play(index: Int, remaining: TimeInterval) {
+    func play(index: Int, remaining: TimeInterval?) {
         sessionTask?.cancel()
         sessionTask = Task { await runFrom(stepIndex: index, initialRemaining: remaining) }
     }
@@ -64,6 +82,41 @@ class ActiveSessionViewModel {
         sessionTask?.cancel()
         sessionTask = nil
         phase = .paused(stepIndex: index, remaining: remaining)
+    }
+
+    func skipBackward() {
+        switch phase {
+        case .step(let index, _):
+            play(index: index - 1,
+                 remaining: nil)
+        case .paused(let index, _):
+            pause(index: index - 1,
+                  remaining: TimeInterval(steps[index - 1].duration))
+        default:
+            break
+        }
+    }
+
+    func skipForward() {
+        switch phase {
+        case .step(let index, _):
+            play(index: index + 1,
+                 remaining: nil)
+        case .paused(let index, _):
+            pause(index: index + 1,
+                  remaining: TimeInterval(steps[index + 1].duration))
+        default:
+            break
+        }
+    }
+
+    func resetStep() {
+        switch phase {
+        case .step(let index, _), .paused(let index, _):
+            pause(index: index, remaining: TimeInterval(steps[index].duration))
+        default:
+            break
+        }
     }
 
     func togglePause() {

@@ -50,13 +50,39 @@ struct ActiveSessionView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             if viewModel.currentStep != nil {
-                Button {
-                    viewModel.togglePause()
-                } label: {
-                    Image(systemName: viewModel.isPaused ? "play.fill" : "pause.fill")
-                        .font(.title)
+                Button("Reset") {
+                    viewModel.resetStep()
                 }
-                .buttonStyle(.borderedProminent)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+                HStack(spacing: 24) {
+                    Button {
+                        viewModel.skipBackward()
+                    } label: {
+                        Image(systemName: "backward.end.fill")
+                            .font(.title)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!viewModel.canSkipBackward)
+
+                    Button {
+                        viewModel.togglePause()
+                    } label: {
+                        Image(systemName: viewModel.isPaused ? "play.fill" : "pause.fill")
+                            .font(.title)
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button {
+                        viewModel.skipForward()
+                    } label: {
+                        Image(systemName: "forward.end.fill")
+                            .font(.title)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!viewModel.canSkipForward)
+                }
                 .padding()
             }
         }
