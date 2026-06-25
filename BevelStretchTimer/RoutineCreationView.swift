@@ -46,7 +46,7 @@ struct RoutineCreationView: View {
                 .padding()
             }
             .navigationDestination(isPresented: $isSessionActive) {
-                ActiveSessionView(steps: viewModel.routine.steps)
+                ActiveSessionView(routineName: viewModel.routine.name, steps: viewModel.routine.steps)
             }
         }
     }

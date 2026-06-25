@@ -11,9 +11,9 @@ import Foundation
 class ActiveSessionViewModel {
     enum Phase {
         case countdown(Int)
-        case step(index: Int, endDate: Date)
-        case paused(stepIndex: Int, remaining: TimeInterval)
-        case done
+        case step(index: Int, endDate: Date, sessionStartDate: Date)
+        case paused(stepIndex: Int, remaining: TimeInterval, totalElapsed: TimeInterval)
+        case done(sessionStartDate: Date)
     }
 
     private let steps: [StretchStep]
@@ -26,7 +26,7 @@ class ActiveSessionViewModel {
 
     var currentStep: StretchStep? {
         switch phase {
-        case .step(let index, _), .paused(let index, _):
+        case .step(let index, _, _), .paused(let index, _, _):
             return steps[index]
         default:
             return nil
@@ -35,7 +35,7 @@ class ActiveSessionViewModel {
 
     var nextStep: StretchStep? {
         switch phase {
-        case .step(let index, _), .paused(let index, _):
+        case .step(let index, _, _), .paused(let index, _, _):
             let next = index + 1
             return next < steps.count ? steps[next] : nil
         default:
@@ -50,7 +50,7 @@ class ActiveSessionViewModel {
 
     var canSkipBackward: Bool {
         switch phase {
-        case .step(let index, _), .paused(let index, _):
+        case .step(let index, _, _), .paused(let index, _, _):
             return index > 0
         default:
             return false
@@ -59,25 +59,22 @@ class ActiveSessionViewModel {
 
     var canSkipForward: Bool {
         switch phase {
-        case .step(let index, _), .paused(let index, _):
+        case .step(let index, _, _), .paused(let index, _, _):
             return index < steps.count - 1
         default:
             return false
         }
     }
-    
+
     // MARK: Public methods
 
     func start() async {
-        do {
-            for count in [3, 2, 1] {
-                phase = .countdown(count)
-                try await Task.sleep(for: .seconds(1))
-            }
-            sessionTask = Task { await runFrom(stepIndex: 0) }
-        } catch {
-            // cancelled on pause or view dismissal
+        for count in [3, 2, 1] {
+            phase = .countdown(count)
+            try? await Task.sleep(for: .seconds(1))
         }
+        sessionTask = Task { await runFrom(stepIndex: 0, sessionStartDate: .now) }
+        
     }
 
     func end() {
@@ -87,12 +84,10 @@ class ActiveSessionViewModel {
 
     func skipBackward() {
         switch phase {
-        case .step(let index, _):
-            play(index: index - 1,
-                 remaining: nil)
-        case .paused(let index, _):
-            pause(index: index - 1,
-                  remaining: TimeInterval(steps[index - 1].duration))
+        case .step(let index, _, let sessionStartDate):
+            play(index: index - 1, remaining: nil, totalElapsed: Date.now.timeIntervalSince(sessionStartDate))
+        case .paused(let index, _, let totalElapsed):
+            pause(index: index - 1, remaining: TimeInterval(steps[index - 1].duration), totalElapsed: totalElapsed)
         default:
             break
         }
@@ -100,12 +95,10 @@ class ActiveSessionViewModel {
 
     func skipForward() {
         switch phase {
-        case .step(let index, _):
-            play(index: index + 1,
-                 remaining: nil)
-        case .paused(let index, _):
-            pause(index: index + 1,
-                  remaining: TimeInterval(steps[index + 1].duration))
+        case .step(let index, _, let sessionStartDate):
+            play(index: index + 1, remaining: nil, totalElapsed: Date.now.timeIntervalSince(sessionStartDate))
+        case .paused(let index, _, let totalElapsed):
+            pause(index: index + 1, remaining: TimeInterval(steps[index + 1].duration), totalElapsed: totalElapsed)
         default:
             break
         }
@@ -113,8 +106,10 @@ class ActiveSessionViewModel {
 
     func resetStep() {
         switch phase {
-        case .step(let index, _), .paused(let index, _):
-            pause(index: index, remaining: TimeInterval(steps[index].duration))
+        case .step(let index, _, let sessionStartDate):
+            pause(index: index, remaining: TimeInterval(steps[index].duration), totalElapsed: Date.now.timeIntervalSince(sessionStartDate))
+        case .paused(let index, _, let totalElapsed):
+            pause(index: index, remaining: TimeInterval(steps[index].duration), totalElapsed: totalElapsed)
         default:
             break
         }
@@ -122,43 +117,55 @@ class ActiveSessionViewModel {
 
     func togglePause() {
         switch phase {
-        case .step(let index, let endDate):
-            pause(index: index, remaining: max(0, endDate.timeIntervalSinceNow))
-        case .paused(let index, let remaining):
-            play(index: index, remaining: remaining)
+        case .step(let index, let endDate, let sessionStartDate):
+            pause(index: index, remaining: max(0, endDate.timeIntervalSinceNow), totalElapsed: Date.now.timeIntervalSince(sessionStartDate))
+        case .paused(let index, let remaining, let totalElapsed):
+            play(index: index, remaining: remaining, totalElapsed: totalElapsed)
         default:
             break
         }
     }
-    
+
     // MARK: Private state changes
-    
-    private func play(index: Int, remaining: TimeInterval?) {
+
+    private func play(index: Int,
+                      remaining: TimeInterval?,
+                      totalElapsed: TimeInterval) {
         sessionTask?.cancel()
-        sessionTask = Task { await runFrom(stepIndex: index, initialRemaining: remaining) }
-    }
-    
-    private func pause(index: Int, remaining: TimeInterval) {
-        sessionTask?.cancel()
-        sessionTask = nil
-        phase = .paused(stepIndex: index, remaining: remaining)
+        let sessionStartDate = Date.now - totalElapsed
+        sessionTask = Task {
+            await runFrom(stepIndex: index,
+                          initialRemaining: remaining,
+                          sessionStartDate: sessionStartDate)
+        }
     }
 
-    private func runFrom(stepIndex: Int, initialRemaining: TimeInterval? = nil) async {
-        do {
-            for index in stepIndex..<steps.count {
-                var duration: TimeInterval
-                if let initialRemaining, index == stepIndex {
-                    duration = initialRemaining
-                } else {
-                    duration = TimeInterval(steps[index].duration)
-                }
-                phase = .step(index: index, endDate: .now + duration)
-                try await Task.sleep(for: .seconds(duration))
+    private func pause(index: Int,
+                       remaining: TimeInterval,
+                       totalElapsed: TimeInterval) {
+        sessionTask?.cancel()
+        sessionTask = nil
+        phase = .paused(stepIndex: index,
+                        remaining: remaining,
+                        totalElapsed: totalElapsed)
+    }
+
+    private func runFrom(stepIndex: Int,
+                         initialRemaining: TimeInterval? = nil,
+                         sessionStartDate: Date) async {
+        for index in stepIndex..<steps.count {
+            let duration: TimeInterval
+            if let initialRemaining, index == stepIndex {
+                duration = initialRemaining
+            } else {
+                duration = TimeInterval(steps[index].duration)
             }
-            phase = .done
-        } catch {
-            // cancelled on pause or view dismissal
+            
+            phase = .step(index: index,
+                          endDate: .now + duration,
+                          sessionStartDate: sessionStartDate)
+            try? await Task.sleep(for: .seconds(duration))
         }
+        phase = .done(sessionStartDate: sessionStartDate)
     }
 }

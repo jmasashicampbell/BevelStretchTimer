@@ -8,8 +8,10 @@ import SwiftUI
 struct ActiveSessionView: View {
     @State private var viewModel: ActiveSessionViewModel
     @Environment(\.dismiss) private var dismiss
+    let routineName: String
 
-    init(steps: [StretchStep]) {
+    init(routineName: String, steps: [StretchStep]) {
+        self.routineName = routineName
         _viewModel = State(wrappedValue: ActiveSessionViewModel(steps: steps))
     }
 
@@ -27,6 +29,11 @@ struct ActiveSessionView: View {
                 }
             }
         }
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                titleView
+            }
+        }
         .task { await viewModel.start() }
         .onDisappear { viewModel.end() }
     }
@@ -40,20 +47,20 @@ struct ActiveSessionView: View {
         VStack {
             switch viewModel.phase {
                 
-            case .step(_, let endDate):
+            case .step(_, let endDate, _):
                 stepText
                 TimelineView(.periodic(from: .now, by: 1.0)) { context in
                     let remaining = max(0, endDate.timeIntervalSince(context.date))
                     timerView(remaining: remaining)
                 }
                 resetButton
-                
-            case .paused(_, let remaining):
+
+            case .paused(_, let remaining, _):
                 stepText
                 timerView(remaining: remaining)
                 resetButton
-                
-            case .done:
+
+            case .done(_):
                 Button("End Session") {
                     viewModel.end()
                     dismiss()
@@ -109,7 +116,8 @@ struct ActiveSessionView: View {
             Button {
                 viewModel.togglePause()
             } label: {
-                Image(systemName: viewModel.isPaused ? "play.fill" : "pause.fill")
+                let imageName = if case .paused = viewModel.phase { "play.fill" } else { "pause.fill" }
+                Image(systemName: imageName)
                     .font(.title)
             }
             .buttonStyle(.borderedProminent)
@@ -125,15 +133,58 @@ struct ActiveSessionView: View {
         }
         .padding()
     }
+    
+    @ViewBuilder
+    private var titleView: some View {
+        switch viewModel.phase {
+        case .countdown(_):
+            EmptyView()
+        default:
+            VStack(spacing: 0) {
+                Text(routineName)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                totalTimerView
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var totalTimerView: some View {
+        switch viewModel.phase {
+        case .step(_, _, let sessionStartDate), .done(let sessionStartDate):
+            TimelineView(.periodic(from: .now, by: 1.0)) { context in
+                Text(formattedTotalTime(context.date.timeIntervalSince(sessionStartDate)))
+                    .font(.system(.body, design: .monospaced).weight(.semibold))
+                    .monospacedDigit()
+            }
+        case .paused(_, _, let totalElapsed):
+            Text(formattedTotalTime(totalElapsed))
+                .font(.system(.title3, design: .monospaced).weight(.medium))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+        default:
+            EmptyView()
+        }
+    }
 
     private func formattedTime(_ seconds: TimeInterval) -> String {
         let s = Int(ceil(seconds))
         return String(format: "%02d:%02d", s / 60, s % 60)
     }
+
+    private func formattedTotalTime(_ seconds: TimeInterval) -> String {
+        let s = Int(seconds)
+        if s >= 3600 {
+            return String(format: "%02d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)
+        } else {
+            return String(format: "%02d:%02d", s / 60, s % 60)
+        }
+    }
 }
 
 #Preview {
-    ActiveSessionView(steps: [
+    ActiveSessionView(routineName: "Morning Routine", steps: [
         StretchStep(name: "Hip flexor", duration: 15),
         StretchStep(name: "Hamstring", duration: 15),
     ])
