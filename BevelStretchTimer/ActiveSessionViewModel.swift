@@ -52,6 +52,8 @@ class ActiveSessionViewModel {
         switch phase {
         case .step(let index, _, _), .paused(let index, _, _):
             return index > 0
+        case .done:
+            return true
         default:
             return false
         }
@@ -59,8 +61,8 @@ class ActiveSessionViewModel {
 
     var canSkipForward: Bool {
         switch phase {
-        case .step(let index, _, _), .paused(let index, _, _):
-            return index < steps.count - 1
+        case .step(_, _, _), .paused(_, _, _):
+            return true
         default:
             return false
         }
@@ -83,9 +85,11 @@ class ActiveSessionViewModel {
     func skipBackward() {
         switch phase {
         case .step(let index, _, let sessionStartDate):
-            play(index: index - 1, remaining: nil, totalElapsed: Date.now.timeIntervalSince(sessionStartDate))
+            play(index: index - 1, remaining: nil, sessionStartDate: sessionStartDate)
         case .paused(let index, _, let totalElapsed):
             pause(index: index - 1, remaining: TimeInterval(steps[index - 1].duration), totalElapsed: totalElapsed)
+        case .done(let sessionStartDate):
+            play(index: steps.count - 1, remaining: nil, sessionStartDate: sessionStartDate)
         default:
             break
         }
@@ -94,7 +98,7 @@ class ActiveSessionViewModel {
     func skipForward() {
         switch phase {
         case .step(let index, _, let sessionStartDate):
-            play(index: index + 1, remaining: nil, totalElapsed: Date.now.timeIntervalSince(sessionStartDate))
+            play(index: index + 1, remaining: nil, sessionStartDate: sessionStartDate)
         case .paused(let index, _, let totalElapsed):
             pause(index: index + 1, remaining: TimeInterval(steps[index + 1].duration), totalElapsed: totalElapsed)
         default:
@@ -118,7 +122,7 @@ class ActiveSessionViewModel {
         case .step(let index, let endDate, let sessionStartDate):
             pause(index: index, remaining: max(0, endDate.timeIntervalSinceNow), totalElapsed: Date.now.timeIntervalSince(sessionStartDate))
         case .paused(let index, let remaining, let totalElapsed):
-            play(index: index, remaining: remaining, totalElapsed: totalElapsed)
+            play(index: index, remaining: remaining, sessionStartDate: Date.now - totalElapsed)
         default:
             break
         }
@@ -128,9 +132,8 @@ class ActiveSessionViewModel {
 
     private func play(index: Int,
                       remaining: TimeInterval?,
-                      totalElapsed: TimeInterval) {
+                      sessionStartDate: Date) {
         sessionTask?.cancel()
-        let sessionStartDate = Date.now - totalElapsed
         sessionTask = Task {
             await runFrom(stepIndex: index,
                           initialRemaining: remaining,
@@ -151,19 +154,23 @@ class ActiveSessionViewModel {
     private func runFrom(stepIndex: Int,
                          initialRemaining: TimeInterval? = nil,
                          sessionStartDate: Date) async {
-        for index in stepIndex..<steps.count {
-            let duration: TimeInterval
-            if let initialRemaining, index == stepIndex {
-                duration = initialRemaining
-            } else {
-                duration = TimeInterval(steps[index].duration)
+        do {
+            for index in stepIndex..<steps.count {
+                let duration: TimeInterval
+                if let initialRemaining, index == stepIndex {
+                    duration = initialRemaining
+                } else {
+                    duration = TimeInterval(steps[index].duration)
+                }
+
+                phase = .step(index: index,
+                              endDate: .now + duration,
+                              sessionStartDate: sessionStartDate)
+                try await Task.sleep(for: .seconds(duration))
             }
-            
-            phase = .step(index: index,
-                          endDate: .now + duration,
-                          sessionStartDate: sessionStartDate)
-            try? await Task.sleep(for: .seconds(duration))
+            phase = .done(sessionStartDate: sessionStartDate)
+        } catch {
+            // Task was cancelled (skip, pause, or dismiss)
         }
-        phase = .done(sessionStartDate: sessionStartDate)
     }
 }

@@ -15,6 +15,10 @@ struct ActiveSessionView: View {
     private let blackGradient = LinearGradient(gradient: Gradient(colors: [Color(white: 0.306), .black]),
                                                startPoint: .top,
                                                endPoint: .bottom)
+    private let orangeGradient = LinearGradient(gradient: Gradient(colors: [Color(red: 255/255, green: 125/255, blue: 43/255),
+                                                                            Color(red: 83/255, green: 43/255, blue: 18/255)]),
+                                               startPoint: .top,
+                                               endPoint: .bottom)
     
 
     init(routineName: String, steps: [StretchStep]) {
@@ -32,6 +36,8 @@ struct ActiveSessionView: View {
                 Spacer()
                 if viewModel.currentStep != nil {
                     upNextLabel
+                }
+                if viewModel.currentStep != nil || viewModel.canSkipBackward {
                     playbackControls
                 }
             }
@@ -99,9 +105,18 @@ struct ActiveSessionView: View {
     }
     
     private func timerView(remaining: TimeInterval) -> some View {
+        
         Text(formattedTime(remaining))
-            .font(.system(size: 80, weight: .bold, design: .monospaced))
+            .font(.system(size: 48, weight: .semibold, design: .rounded))
+            .foregroundStyle(Color.white)
             .monospacedDigit()
+            .padding(.vertical, 11)
+            .padding(.horizontal, 28)
+            .background {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(remaining < 10 ? orangeGradient : blackGradient)
+                
+            }
     }
     
     private var resetButton: some View {
@@ -138,6 +153,7 @@ struct ActiveSessionView: View {
                 Image(systemName: imageName)
                     .font(.title)
             }
+            .disabled(viewModel.currentStep == nil)
             .buttonStyle(.borderedProminent)
 
             Button {
@@ -171,7 +187,7 @@ struct ActiveSessionView: View {
     private var totalTimerView: some View {
         switch viewModel.phase {
         case .step(_, _, let sessionStartDate), .done(let sessionStartDate):
-            TimelineView(.periodic(from: .now, by: 1.0)) { context in
+            TimelineView(.periodic(from: sessionStartDate, by: 1.0)) { context in
                 Text(formattedTotalTime(context.date.timeIntervalSince(sessionStartDate)))
                     .font(.subheadline)
                     .monospacedDigit()
