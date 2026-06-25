@@ -16,26 +16,48 @@ struct RoutineCreationView: View {
             VStack(spacing: 0) {
                 TextField("New stretch session", text: $viewModel.routine.name)
                     .font(.title.bold())
+                    .multilineTextAlignment(.center)
                     .padding(.horizontal)
                     .padding(.vertical, 12)
 
                 Divider()
+                    .padding(.horizontal, 30)
+                    .padding(.top, 15)
 
-                List {
-                    ForEach($viewModel.routine.steps) { $step in
-                        StepRowView(step: $step) {
-                            viewModel.deleteStep(id: step.id)
+                ScrollView {
+                    VStack(spacing: 12) {
+                        ForEach($viewModel.routine.steps) { $step in
+                            let number = (viewModel.routine.steps.firstIndex(where: { $0.id == step.id }) ?? 0) + 1
+                            StepRowView(step: $step, number: number) {
+                                viewModel.deleteStep(id: step.id)
+                            }
+                        }
+                        
+                        HStack {
+                            Button {
+                                viewModel.addStep()
+                            } label: {
+                                Image(systemName: "plus.circle")
+                                    .font(.title2)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 18)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 16)
+                                            .fill(.background)
+                                            .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            
+                            // Preserves spacing to align with rows with delete button
+                            Image(systemName: "xmark")
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.clear)
                         }
                     }
-                    Button {
-                        viewModel.addStep()
-                    } label: {
-                        Label("Add step", systemImage: "plus")
-                    }
+                    .padding(.top, 32)
+                    .padding(.horizontal, 20)
                 }
-                .listStyle(.plain)
-
-                Divider()
 
                 Group {
                     if viewModel.didAttemptStart, let error = viewModel.validationError {
@@ -79,6 +101,7 @@ struct RoutineCreationView: View {
 
 struct StepRowView: View {
     @Binding var step: StretchStep
+    var number: Int
     var onDelete: () -> Void
 
     @State private var showingPicker = false
@@ -87,20 +110,39 @@ struct StepRowView: View {
 
     var body: some View {
         HStack {
-            TextField("(e.g. Hip flexor)", text: $step.name)
-            Spacer()
-            Button {
-                selectedMinutes = step.duration / 60
-                selectedSeconds = step.duration % 60
-                showingPicker = true
-            } label: {
-                Text(formattedDuration(step.duration))
+            HStack {
+                Text("\(number).")
+                    .font(.system(size: 19, weight: .medium, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(.secondary)
+                TextField("(e.g. Hip flexor)", text: $step.name)
+                    .font(.system(size: 19, weight: .medium, design: .rounded))
+                    .padding(.vertical, 18)
+                Spacer()
+                
+                Divider()
+                Button {
+                    selectedMinutes = step.duration / 60
+                    selectedSeconds = step.duration % 60
+                    showingPicker = true
+                } label: {
+                    Text(formattedDuration(step.duration))
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(step.duration == 0 ? Color.gray : Color.black)
+                }
+                .buttonStyle(.borderless)
             }
-            .buttonStyle(.borderless)
-            Button(role: .destructive, action: onDelete) {
-                Image(systemName: "trash")
+            .padding(.horizontal, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.background)
+                    .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
+            )
+            
+            Button(action: onDelete) {
+                Image(systemName: "xmark")
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.gray)
             }
             .buttonStyle(.borderless)
         }

@@ -160,7 +160,7 @@ struct ActiveSessionView: View {
         default:
             VStack(spacing: 0) {
                 Text(routineName)
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                 totalTimerView
             }
@@ -173,7 +173,7 @@ struct ActiveSessionView: View {
         case .step(_, _, let sessionStartDate), .done(let sessionStartDate):
             TimelineView(.periodic(from: .now, by: 1.0)) { context in
                 Text(formattedTotalTime(context.date.timeIntervalSince(sessionStartDate)))
-                    .font(.system(.body, design: .monospaced).weight(.semibold))
+                    .font(.subheadline)
                     .monospacedDigit()
             }
         case .paused(_, _, let totalElapsed):
