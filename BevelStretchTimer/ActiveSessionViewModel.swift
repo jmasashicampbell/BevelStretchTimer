@@ -33,6 +33,16 @@ class ActiveSessionViewModel {
         }
     }
 
+    var nextStep: StretchStep? {
+        switch phase {
+        case .step(let index, _), .paused(let index, _):
+            let next = index + 1
+            return next < steps.count ? steps[next] : nil
+        default:
+            return nil
+        }
+    }
+
     var isPaused: Bool {
         if case .paused = phase { return true }
         return false
@@ -55,6 +65,8 @@ class ActiveSessionViewModel {
             return false
         }
     }
+    
+    // MARK: Public methods
 
     func start() async {
         do {
@@ -71,17 +83,6 @@ class ActiveSessionViewModel {
     func end() {
         sessionTask?.cancel()
         sessionTask = nil
-    }
-    
-    func play(index: Int, remaining: TimeInterval?) {
-        sessionTask?.cancel()
-        sessionTask = Task { await runFrom(stepIndex: index, initialRemaining: remaining) }
-    }
-    
-    func pause(index: Int, remaining: TimeInterval) {
-        sessionTask?.cancel()
-        sessionTask = nil
-        phase = .paused(stepIndex: index, remaining: remaining)
     }
 
     func skipBackward() {
@@ -128,6 +129,19 @@ class ActiveSessionViewModel {
         default:
             break
         }
+    }
+    
+    // MARK: Private state changes
+    
+    private func play(index: Int, remaining: TimeInterval?) {
+        sessionTask?.cancel()
+        sessionTask = Task { await runFrom(stepIndex: index, initialRemaining: remaining) }
+    }
+    
+    private func pause(index: Int, remaining: TimeInterval) {
+        sessionTask?.cancel()
+        sessionTask = nil
+        phase = .paused(stepIndex: index, remaining: remaining)
     }
 
     private func runFrom(stepIndex: Int, initialRemaining: TimeInterval? = nil) async {

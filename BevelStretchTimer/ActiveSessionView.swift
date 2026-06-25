@@ -22,6 +22,7 @@ struct ActiveSessionView: View {
                 centerStack
                 Spacer()
                 if viewModel.currentStep != nil {
+                    upNextLabel
                     playbackControls
                 }
             }
@@ -86,6 +87,14 @@ struct ActiveSessionView: View {
         .foregroundStyle(.secondary)
     }
     
+    private var upNextLabel: some View {
+        HStack(spacing: 0) {
+            Text("Up next: ")
+                .foregroundStyle(.secondary)
+            Text(viewModel.nextStep?.name ?? "Done")
+        }
+    }
+
     private var playbackControls: some View {
         HStack(spacing: 24) {
             Button {
